@@ -4,4 +4,5 @@ dist/
 .env.local
 .env.*.local
 *.log
+!ai_decisions.log
 .DS_Store

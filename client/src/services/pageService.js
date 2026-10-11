@@ -12,5 +12,8 @@ export default {
   permanentDelete: (id) => api.delete(`/pages/${id}/permanent`),
   getTrash: () => api.get('/pages/trash'),
   emptyTrash: () => api.delete('/pages/trash'),
-  searchPages: (q) => api.get('/pages/search', { params: { q } }),
+  searchPages: (params) => {
+    const queryParams = typeof params === 'string' ? { q: params } : params
+    return api.get('/pages/search', { params: queryParams })
+  },
 }

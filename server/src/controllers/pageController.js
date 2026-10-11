@@ -1,7 +1,7 @@
 import Page, { emptyDoc } from '../models/Page.js'
 import ApiError from '../utils/apiError.js'
 import asyncHandler from '../utils/asyncHandler.js'
-import { extractText, escapeRegex, buildSnippet } from '../utils/tiptapText.js'
+import { extractText, escapeRegex, buildSnippet, computeRelevanceScore } from '../utils/tiptapText.js'
 import collectDescendantIds from '../utils/pageTree.js'
 
 export const getPages = asyncHandler(async (req, res) => {
@@ -148,17 +148,63 @@ export const searchPages = asyncHandler(async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 100)
   if (!q) return res.json({ success: true, data: { pages: [] } })
 
+  const rawScope = String(req.query.scope || '').trim().toLowerCase()
+  const scope = rawScope === 'title' || rawScope === 'titles' ? 'title' : 'all'
+
+  const rawSort = String(req.query.sort || '').trim().toLowerCase()
+  const sort = rawSort === 'relevance' ? 'relevance' : 'updated'
+
   const regex = new RegExp(escapeRegex(q), 'i')
-  const pages = await Page.find({
+  const filter = {
     owner: req.user.id,
     isDeleted: false,
-    $or: [{ title: regex }, { contentText: regex }],
-  })
-    .select('title icon contentText updatedAt')
-    .sort({ updatedAt: -1 })
-    .limit(20)
-    .lean()
+  }
 
-  const results = pages.map(({ contentText, ...page }) => ({ ...page, snippet: buildSnippet(contentText, q) }))
+  if (scope === 'title') {
+    filter.title = regex
+  } else {
+    filter.$or = [{ title: regex }, { contentText: regex }]
+  }
+
+  let pages = []
+
+  if (sort === 'relevance') {
+    const candidates = await Page.find(filter)
+      .select('title icon contentText updatedAt')
+      .limit(100)
+      .lean()
+
+    candidates.sort((a, b) => {
+      const scoreA = computeRelevanceScore(a, q)
+      const scoreB = computeRelevanceScore(b, q)
+      if (scoreA !== scoreB) return scoreB - scoreA
+
+      if (scoreA >= 50) {
+        const lenA = (a.title || '').length
+        const lenB = (b.title || '').length
+        if (lenA !== lenB) return lenA - lenB
+      }
+
+      const timeA = new Date(a.updatedAt || 0).getTime()
+      const timeB = new Date(b.updatedAt || 0).getTime()
+      if (timeA !== timeB) return timeB - timeA
+
+      return String(a._id).localeCompare(String(b._id))
+    })
+
+    pages = candidates.slice(0, 20)
+  } else {
+    pages = await Page.find(filter)
+      .select('title icon contentText updatedAt')
+      .sort({ updatedAt: -1, _id: 1 })
+      .limit(20)
+      .lean()
+  }
+
+  const results = pages.map(({ contentText, ...page }) => ({
+    ...page,
+    snippet: buildSnippet(contentText, q),
+  }))
+
   res.json({ success: true, data: { pages: results } })
 })
