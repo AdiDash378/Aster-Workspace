@@ -135,3 +135,9 @@ After starting MongoDB and running the app, verify:
 ## Deliberate Future Work
 
 Real-time collaboration, sharing and permissions, databases, drag-and-drop ordering, version history, file uploads, offline sync, and Markdown export are not included in the current release.
+
+## Contributing
+
+Contributions, issues, and feature requests are welcome!
+
+For a detailed setup guide, coding conventions, architectural breakdown, and pull request workflow, please check out the [Contributing Guidelines](CONTRIBUTING.md).
