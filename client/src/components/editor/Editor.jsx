@@ -12,10 +12,13 @@ import { TaskList } from '@tiptap/extension-task-list'
 import { TaskItem } from '@tiptap/extension-task-item'
 import SlashCommands from './SlashCommands'
 import FloatingToolbar from './FloatingToolbar'
+import { getEditorWordCount } from '../../utils/docStats'
 
-export default function Editor({ initialContent, editable = true, onChange, onEditorReady }) {
+export default function Editor({ initialContent, editable = true, onChange, onEditorReady, onWordCountChange }) {
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+  const onWordCountChangeRef = useRef(onWordCountChange)
+  onWordCountChangeRef.current = onWordCountChange
 
   const editor = useEditor({
     extensions: [
@@ -40,7 +43,11 @@ export default function Editor({ initialContent, editable = true, onChange, onEd
     ],
     content: initialContent,
     editable,
-    onUpdate: ({ editor: current }) => onChangeRef.current(current.getJSON()),
+    onCreate: ({ editor: current }) => onWordCountChangeRef.current?.(getEditorWordCount(current)),
+    onUpdate: ({ editor: current }) => {
+      onChangeRef.current(current.getJSON())
+      onWordCountChangeRef.current?.(getEditorWordCount(current))
+    },
     editorProps: {
       attributes: {
         class: 'prose prose-zinc dark:prose-invert focus:outline-none min-h-[60vh] max-w-none',
